@@ -29,7 +29,8 @@ import (
 	"encoding/json"
 	"testing"
 
-	"gopkg.in/mgo.v2/bson"
+	"github.com/mongodb/mongo-go-driver/bson"
+	mgobson "gopkg.in/mgo.v2/bson"
 )
 
 const (
@@ -254,6 +255,52 @@ func TestBsonD(t *testing.T) {
 	}
 }
 
+func TestMGOBsonD(t *testing.T) {
+
+	testDocumentBson := mgobson.D{
+		{"foo", []interface{}{"bar", "baz"}},
+		{"obj", mgobson.D{
+			{"a", 1},
+			{"b", 2},
+			{"c", []interface{}{3, 4}},
+			{"d", []interface{}{
+				mgobson.D{{"e", 9}},
+				mgobson.D{{"f", []interface{}{50, 51}}},
+			}},
+		}},
+		{"", 0},
+		{"a/b", 1},
+		{"c%d", 2},
+		{"e^f", 3},
+		{"g|h", 4},
+		{"i\\j", 5},
+		{"k\"l", 6},
+		{" ", 7},
+		{"m~n", 8},
+		{"o~/p", 9},
+		{"q/~r", 10},
+	}
+
+	ins := []string{`/obj/a`, `/obj/b`, `/obj/c/0`, `/obj/c/1`, `/obj/c/1`, `/obj/d/1/f/0`}
+	outs := []int{1, 2, 3, 4, 4, 50}
+
+	for i := range ins {
+		p, err := NewJsonPointer(ins[i])
+		if err != nil {
+			t.Errorf("NewJsonPointer(%v) error %v", ins[i], err.Error())
+		}
+
+		result, _, err := p.Get(testDocumentBson)
+		if err != nil {
+			t.Errorf("Get(%v) error %v", ins[i], err.Error())
+		}
+
+		if result != outs[i] {
+			t.Errorf("Get(%v) = %v, expect %v", ins[i], result, outs[i])
+		}
+	}
+}
+
 func TestSetNode(t *testing.T) {
 
 	jsonText := `{"a":[{"b": 1, "c": 2}], "d": 3}`
@@ -343,7 +390,7 @@ func TestDelObject(t *testing.T) {
 		t.Errorf("NewJsonPointer(%v) error %v", in, err.Error())
 	}
 
-	_,  err = p.Delete(jsonDocument)
+	_, err = p.Delete(jsonDocument)
 	if err != nil {
 		t.Errorf("Delete(%v) error %v", in, err.Error())
 	}
@@ -356,7 +403,6 @@ func TestDelObject(t *testing.T) {
 		t.Errorf("Delete (%s) failed: key is still present in the map", in)
 	}
 }
-
 
 func TestDelArray(t *testing.T) {
 	jsonText := `{
@@ -382,7 +428,7 @@ func TestDelArray(t *testing.T) {
 		t.Errorf("NewJsonPointer(%v) error %v", in, err.Error())
 	}
 
-	_,  err = p.Delete(jsonDocument)
+	_, err = p.Delete(jsonDocument)
 	if err != nil {
 		t.Errorf("Delete(%v) error %v", in, err.Error())
 	}
